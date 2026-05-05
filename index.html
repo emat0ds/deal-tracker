@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M&A Deal Tracker</title>
+<style>
+/* ═══════════════════════════════════════════════
+   CONFIGURAZIONE RAPIDA — leggi qui prima di tutto
+   ═══════════════════════════════════════════════
+   Per modificare password:  cerca PASSWORD_ACCESSO
+   Per aggiungere persone:   cerca PERSONE
+   Per aggiungere società:   cerca DEALS (lista deals)
+   Per aggiungere task:      cerca tasks: [ all'interno del deal
+   ═══════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #F7F6F3;
+  --surface:  #FFFFFF;
+  --surface2: #F1EFE8;
+  --border:   rgba(0,0,0,0.10);
+  --border2:  rgba(0,0,0,0.18);
+  --text:     #1A1A18;
+  --text2:    #5F5E5A;
+  --text3:    #999890;
+  --radius:   10px;
+  --radius-sm:6px;
+}
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+/* ── LOGIN ─────────────────────────────────────── */
+#login-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+}
+.login-box {
+  background: var(--surface); border: 0.5px solid var(--border2);
+  border-radius: 14px; padding: 2.5rem 2rem; width: 320px; text-align: center;
+}
+.login-box h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.login-box p  { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; }
+.login-box input {
+  width: 100%; padding: 10px 14px; border: 0.5px solid var(--border2);
+  border-radius: var(--radius-sm); font-size: 14px; background: var(--bg);
+  margin-bottom: 10px; outline: none;
+}
+.login-box input:focus { border-color: #185FA5; }
+.login-box button {
+  width: 100%; padding: 10px; background: #1A1A18; color: #fff;
+  border: none; border-radius: var(--radius-sm); font-size: 14px;
+  font-weight: 500; cursor: pointer;
+}
+.login-box button:hover { background: #333; }
+.login-error { font-size: 12px; color: #c0392b; margin-top: 8px; display: none; }
+
+/* ── APP ────────────────────────────────────────── */
+#app { display: none; max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+.topbar {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; flex-wrap: wrap;
+}
+.topbar-title { font-size: 17px; font-weight: 600; flex: 1; }
+.seg {
+  display: flex; border: 0.5px solid var(--border2); border-radius: 20px; overflow: hidden;
+}
+.seg-btn {
+  font-size: 12px; padding: 5px 14px; background: transparent; border: none;
+  cursor: pointer; color: var(--text2); transition: all .15s;
+}
+.seg-btn.active { background: var(--text); color: #fff; font-weight: 500; }
+
+.filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.25rem; align-items: center; }
+.filter-label { font-size: 11px; color: var(--text3); }
+.chip {
+  font-size: 12px; padding: 4px 11px; border-radius: 20px;
+  border: 0.5px solid var(--border); background: var(--surface);
+  color: var(--text2); cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; gap: 5px;
+}
+.chip.active { background: var(--text); color: #fff; border-color: var(--text); }
+.chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── DEAL ROWS ──────────────────────────────────── */
+.pipeline { display: flex; flex-direction: column; gap: 10px; }
+.deal-row {
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); overflow: hidden;
+}
+.deal-header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  cursor: pointer; background: var(--surface2);
+  border-bottom: 0.5px solid transparent; transition: background .15s;
+}
+.deal-header:hover { background: #E8E6DF; }
+.deal-header.open { border-bottom-color: var(--border); }
+.deal-name { font-size: 14px; font-weight: 600; min-width: 90px; }
+.deal-owners-row { display: flex; align-items: center; gap: 4px; flex: 1; }
+.avatar {
+  width: 22px; height: 22px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 8px; font-weight: 600;
+  border: 2px solid var(--surface); flex-shrink: 0;
+}
+.involved-sep { font-size: 11px; color: var(--text3); margin-left: 4px; }
+.involved-names { font-size: 11px; color: var(--text2); }
+.stage-badge {
+  font-size: 11px; padding: 2px 9px; border-radius: 20px;
+  font-weight: 500; white-space: nowrap;
+}
+.prog-wrap { display: flex; align-items: center; gap: 5px; }
+.prog-bar { width: 56px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+.prog-pct { font-size: 10px; color: var(--text3); min-width: 26px; text-align: right; }
+.chev { font-size: 10px; color: var(--text3); transition: transform .2s; flex-shrink: 0; }
+.chev.open { transform: rotate(90deg); }
+
+.deal-body { display: none; padding: 10px 13px 12px; }
+.deal-body.open { display: block; }
+
+.note-pill {
+  font-size: 11px; color: var(--text2); background: #FAEEDA;
+  border-radius: 6px; padding: 5px 9px; margin-bottom: 9px;
+  cursor: pointer; font-style: italic; border: 0.5px solid #F0C87A;
+}
+.note-pill:hover { background: #F5D98A; }
+
+/* ── PHASES ─────────────────────────────────────── */
+.phases {
+  display: flex; border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; margin-bottom: 9px;
+}
+.phase-col { flex: 1; min-width: 0; border-right: 0.5px solid var(--border); }
+.phase-col:last-child { border-right: none; }
+.phase-title {
+  font-size: 9px; font-weight: 600; color: var(--text3);
+  padding: 5px 7px; background: var(--surface2);
+  border-bottom: 0.5px solid var(--border);
+  text-align: center; text-transform: uppercase; letter-spacing: .05em;
+}
+.tasks-list { padding: 5px; display: flex; flex-direction: column; gap: 3px; min-height: 36px; }
+.task-card {
+  border-radius: 5px; padding: 5px 7px;
+  border: 0.5px solid var(--border); background: var(--surface);
+  cursor: pointer; transition: border-color .15s;
+}
+.task-card:hover { border-color: var(--border2); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.task-card.done { opacity: .45; }
+.task-title { font-size: 11px; color: var(--text); line-height: 1.35; margin-bottom: 4px; }
+.task-card.done .task-title { text-decoration: line-through; color: var(--text3); }
+.task-foot { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.owner-pill { font-size: 10px; padding: 1px 7px; border-radius: 20px; font-weight: 500; }
+.date-tag { font-size: 10px; color: var(--text3); }
+.date-tag.overdue { color: #c0392b; font-weight: 600; }
+.add-col-btn {
+  font-size: 10px; color: var(--text3); padding: 3px; cursor: pointer;
+  text-align: center; border-radius: 4px; margin: 2px 4px;
+}
+.add-col-btn:hover { color: var(--text2); background: var(--surface2); }
+
+.deal-foot {
+  display: flex; align-items: center; gap: 6px; padding-top: 8px;
+  border-top: 0.5px solid var(--border); flex-wrap: wrap;
+}
+.foot-stat { font-size: 11px; color: var(--text2); }
+.foot-btn {
+  font-size: 11px; padding: 4px 11px; border-radius: 20px;
+  border: 0.5px solid var(--border2); background: transparent;
+  color: var(--text2); cursor: pointer;
+}
+.foot-btn:hover { background: var(--surface2); }
+
+/* ── OWNER VIEW ─────────────────────────────────── */
+.owner-grid { display: flex; flex-direction: column; gap: 12px; }
+.owner-section {
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); overflow: hidden;
+}
+.owner-header {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  background: var(--surface2); border-bottom: 0.5px solid var(--border);
+}
+.owner-hname { font-size: 14px; font-weight: 600; }
+.owner-stats { font-size: 11px; color: var(--text3); margin-left: auto; }
+.owner-tasks { padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+.owner-task-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border-radius: 6px; border: 0.5px solid var(--border); cursor: pointer;
+  transition: background .12s;
+}
+.owner-task-row:hover { background: var(--surface2); }
+.owner-task-row.done { opacity: .45; }
+.check {
+  width: 15px; height: 15px; border-radius: 3px; border: 0.5px solid var(--border2);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px; flex-shrink: 0; color: transparent; cursor: pointer;
+  transition: all .15s;
+}
+.check:hover { border-color: #185FA5; }
+.check.checked { background: #1D9E75; border-color: #1D9E75; color: #fff; }
+.otask-company { font-size: 11px; font-weight: 600; color: var(--text2); min-width: 72px; }
+.otask-title { font-size: 12px; color: var(--text); flex: 1; }
+.otask-phase {
+  font-size: 10px; padding: 2px 7px; border-radius: 20px;
+  border: 0.5px solid var(--border); color: var(--text3); white-space: nowrap;
+}
+.otask-date { font-size: 10px; color: var(--text3); min-width: 32px; text-align: right; }
+.otask-date.overdue { color: #c0392b; font-weight: 600; }
+.empty-msg { font-size: 12px; color: var(--text3); text-align: center; padding: 14px; }
+
+/* ── MODAL ──────────────────────────────────────── */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  display: none; align-items: center; justify-content: center; z-index: 300;
+}
+.modal-bg.open { display: flex; }
+.modal {
+  background: var(--surface); border-radius: 14px;
+  border: 0.5px solid var(--border2); padding: 1.5rem;
+  width: 320px; max-width: 92vw; max-height: 90vh; overflow-y: auto;
+}
+.modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+.modal label { font-size: 11px; color: var(--text2); display: block; margin: 9px 0 3px; }
+.modal input, .modal select, .modal textarea {
+  width: 100%; padding: 7px 10px; border: 0.5px solid var(--border2);
+  border-radius: var(--radius-sm); font-size: 13px;
+  background: var(--bg); color: var(--text); outline: none;
+  font-family: inherit;
+}
+.modal input:focus, .modal select:focus, .modal textarea:focus { border-color: #185FA5; }
+.modal textarea { resize: vertical; min-height: 60px; }
+.done-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+.done-row input[type=checkbox] { width: auto; }
+.modal-btns { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+.btn-del { font-size: 12px; color: #c0392b; background: none; border: none; cursor: pointer; padding: 4px 0; }
+.btn-del:hover { text-decoration: underline; }
+.btn-row { display: flex; gap: 8px; }
+.btn-cancel {
+  font-size: 12px; padding: 6px 14px; border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border2); background: transparent;
+  color: var(--text2); cursor: pointer;
+}
+.btn-save {
+  font-size: 12px; padding: 6px 14px; border-radius: var(--radius-sm);
+  border: none; background: #1A1A18; color: #fff; cursor: pointer; font-weight: 500;
+}
+.btn-save:hover { background: #333; }
+
+@media (max-width: 600px) {
+  .phases { flex-direction: column; }
+  .phase-col { border-right: none; border-bottom: 0.5px solid var(--border); }
+  .phase-col:last-child { border-bottom: none; }
+  .otask-phase, .otask-date { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     LOGIN
+════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>M&A Deal Tracker</h1>
+    <p>Accesso riservato</p>
+    <input type="password" id="pwd-input" placeholder="Password" autocomplete="current-password">
+    <button id="pwd-btn">Entra</button>
+    <p class="login-error" id="login-error">Password errata</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     APP
+════════════════════════════════════════════════════ -->
+<div id="app">
+  <div class="topbar">
+    <span class="topbar-title">M&amp;A Deal Tracker</span>
+    <div class="seg" id="view-seg">
+      <button class="seg-btn active" data-view="company">Per società</button>
+      <button class="seg-btn" data-view="owner">Per owner</button>
+    </div>
+  </div>
+  <div class="filter-row" id="filter-row"></div>
+  <div id="main-view"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h3 id="m-title">Task</h3>
+    <label>Descrizione</label>
+    <input type="text" id="m-desc" placeholder="Es. Inviare bozza NDA...">
+    <label>Fase</label>
+    <select id="m-phase"></select>
+    <label>Owner</label>
+    <select id="m-owner"></select>
+    <label>Data (opzionale)</label>
+    <input type="date" id="m-date">
+    <label>Note (opzionale)</label>
+    <textarea id="m-note" placeholder="Dettagli aggiuntivi..."></textarea>
+    <div class="done-row">
+      <input type="checkbox" id="m-done">
+      <label for="m-done" style="margin:0">Segna come completato</label>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-del" id="m-del" style="display:none">Elimina task</button>
+      <div class="btn-row">
+        <button class="btn-cancel" id="m-cancel">Annulla</button>
+        <button class="btn-save" id="m-save">Salva</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   ██████████████████████████████████████████████████████
+   ██                                                  ██
+   ██   SEZIONE CONFIGURAZIONE — MODIFICA QUI          ██
+   ██                                                  ██
+   ██████████████████████████████████████████████████████
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── PASSWORD ──────────────────────────────────────────────
+   Cambia la stringa qui sotto con la password che vuoi usare */
+const PASSWORD_ACCESSO = "dealteam2026";
+
+/* ── FASI DELLA PIPELINE ───────────────────────────────────
+   Puoi rinominare le fasi o aggiungerne di nuove.
+   ATTENZIONE: se rinomini una fase, aggiorna anche i task che
+   la usano (campo "phase" nei task qui sotto). */
+const FASI = [
+  "Contatto",
+  "NDA / Legale",
+  "Due Diligence",
+  "Negoziazione",
+  "Closing"
+];
+
+/* ── STATI DEL DEAL ────────────────────────────────────────
+   Puoi aggiungere stati. Formato: "NomeStato": { color, bg }
+   Usa codici colore HEX. */
+const STATI = {
+  "Prospect":     { color: "#5F5E5A", bg: "#F1EFE8" },
+  "Attiva":       { color: "#185FA5", bg: "#E6F1FB" },
+  "Negoziazione": { color: "#BA7517", bg: "#FAEEDA" },
+  "Pausa":        { color: "#993C1D", bg: "#FAECE7" },
+  "Chiusa":       { color: "#3B6D11", bg: "#EAF3DE" }
+};
+
+/* ── PERSONE ───────────────────────────────────────────────
+   OWNER FISSI: appaiono sempre nei filtri e nella vista "Per owner".
+   Formato: { name, color (testo), bg (sfondo avatar) }
+
+   Per aggiungere un owner fisso: copia una riga e incollala.
+   Per rimuovere: elimina la riga corrispondente. */
+const CORE_OWNERS = [
+  { name: "Emanuele", color: "#185FA5", bg: "#E6F1FB" },
+  { name: "Vittorio",  color: "#0F6E56", bg: "#E1F5EE" },
+  { name: "Vincenzo",  color: "#993C1D", bg: "#FAECE7" },
+];
+
+/* PERSONE AGGIUNTIVE: coinvolti/attori secondari.
+   Appaiono nei filtri e sono assegnabili ai task,
+   ma non hanno una sezione dedicata nella vista "Per owner".
+   Olsi e Savio possono essere promossi a owner di un deal
+   specifico task per task, senza cambiare nulla qui. */
+const PERSONE_AGGIUNTIVE = [
+  { name: "Olsi",      color: "#534AB7", bg: "#EEEDFE" },
+  { name: "Savio",     color: "#3B6D11", bg: "#EAF3DE" },
+  { name: "Mogliotti", color: "#854F0B", bg: "#FAEEDA" },
+  /* Per aggiungere una persona: { name: "NomePersona", color: "#COLORE", bg: "#SFONDO" } */
+];
+
+/* ── DEALS ─────────────────────────────────────────────────
+   Ogni deal è un oggetto con questi campi:
+   - id:          numero univoco (non ripetere mai lo stesso)
+   - name:        nome della società
+   - stage:       uno degli stati definiti in STATI sopra
+   - note:        testo breve sullo stato della trattativa
+   - owners:      array di nomi (devono essere in CORE_OWNERS o PERSONE_AGGIUNTIVE)
+   - involved:    array di nomi di coinvolti secondari
+   - tasks:       array di task (vedi struttura sotto)
+
+   Ogni TASK ha:
+   - id:          numero univoco (non ripetere)
+   - title:       descrizione del task
+   - phase:       deve corrispondere esattamente a una delle FASI sopra
+   - owner:       nome della persona responsabile
+   - date:        "YYYY-MM-DD" oppure "" se non c'è scadenza
+   - done:        true se completato, false se aperto
+   - note:        nota aggiuntiva opzionale ("" se vuota)
+*/
+let DEALS = [
+  {
+    id: 1,
+    name: "Flexider",
+    stage: "Attiva",
+    note: "Primo incontro fissato. Priorità alta.",
+    owners: ["Emanuele", "Vittorio"],
+    involved: ["Olsi"],
+    tasks: [
+      { id: 101, title: "Primo incontro esplorativo", phase: "Contatto",      owner: "Emanuele", date: "2026-05-12", done: true,  note: "" },
+      { id: 102, title: "Invio bozza NCNDA",          phase: "NDA / Legale",  owner: "Vittorio",  date: "2026-05-20", done: false, note: "Usare template già preparato" },
+      { id: 103, title: "Follow-up post incontro",    phase: "Contatto",      owner: "Emanuele", date: "2026-05-15", done: false, note: "" },
+      { id: 104, title: "Analisi struttura societaria",phase: "Due Diligence",owner: "Olsi",      date: "",           done: false, note: "" },
+    ]
+  },
+  {
+    id: 2,
+    name: "Trasteel",
+    stage: "Prospect",
+    note: "Da avvicinare tramite Mogliotti.",
+    owners: ["Vincenzo"],
+    involved: ["Mogliotti"],
+    tasks: [
+      { id: 201, title: "Ricerca background azienda", phase: "Contatto", owner: "Vincenzo",  date: "",           done: true,  note: "" },
+      { id: 202, title: "Introduzione via Mogliotti", phase: "Contatto", owner: "Mogliotti", date: "2026-05-28", done: false, note: "" },
+    ]
+  },
+  {
+    id: 3,
+    name: "MG Aerospace",
+    stage: "Negoziazione",
+    note: "Term sheet in revisione.",
+    owners: ["Emanuele", "Vincenzo"],
+    involved: ["Savio"],
+    tasks: [
+      { id: 301, title: "NCNDA firmato",               phase: "NDA / Legale",  owner: "Emanuele", date: "",           done: true,  note: "" },
+      { id: 302, title: "Analisi bilanci 3 anni",      phase: "Due Diligence", owner: "Savio",    date: "2026-05-08", done: true,  note: "" },
+      { id: 303, title: "Bozza term sheet",            phase: "Negoziazione",  owner: "Vincenzo", date: "2026-05-22", done: false, note: "" },
+      { id: 304, title: "Revisione legale term sheet", phase: "Negoziazione",  owner: "Emanuele", date: "2026-05-30", done: false, note: "" },
+      { id: 305, title: "Valutazione quota azionaria", phase: "Negoziazione",  owner: "Savio",    date: "",           done: false, note: "" },
+    ]
+  },
+  {
+    id: 4,
+    name: "Miroglio",
+    stage: "Pausa",
+    note: "In attesa risposta — riprendere a giugno.",
+    owners: ["Vittorio"],
+    involved: ["Olsi"],
+    tasks: [
+      { id: 401, title: "Primo contatto telefonico", phase: "Contatto", owner: "Vittorio", date: "",           done: true,  note: "" },
+      { id: 402, title: "Riprendere contatto",       phase: "Contatto", owner: "Vittorio", date: "2026-06-05", done: false, note: "Aspettare ok di Emanuele prima" },
+    ]
+  },
+  {
+    id: 5,
+    name: "SDM",
+    stage: "Attiva",
+    note: "Due diligence in corso.",
+    owners: ["Emanuele"],
+    involved: ["Savio", "Mogliotti"],
+    tasks: [
+      { id: 501, title: "NDA firmato",                   phase: "NDA / Legale",  owner: "Emanuele", date: "",           done: true,  note: "" },
+      { id: 502, title: "Sopralluogo stabilimento",      phase: "Due Diligence", owner: "Mogliotti",date: "2026-05-10", done: true,  note: "" },
+      { id: 503, title: "Report due diligence operativa",phase: "Due Diligence", owner: "Savio",    date: "2026-05-25", done: false, note: "" },
+      { id: 504, title: "Proposta di partnership",       phase: "Negoziazione",  owner: "Emanuele", date: "",           done: false, note: "" },
+    ]
+  },
+  {
+    id: 6,
+    name: "CO ME Fi",
+    stage: "Prospect",
+    note: "Solo desk research finora.",
+    owners: ["Vincenzo"],
+    involved: [],
+    tasks: [
+      { id: 601, title: "Raccolta info pubbliche", phase: "Contatto", owner: "Vincenzo", date: "", done: false, note: "" },
+    ]
+  },
+  /* ── PER AGGIUNGERE UNA NUOVA SOCIETÀ, copia questo blocco ──
+  {
+    id: 7,                          // usa un numero non già usato
+    name: "Nome Società",
+    stage: "Prospect",              // uno degli stati in STATI
+    note: "Nota iniziale...",
+    owners: ["Emanuele"],           // owner principali
+    involved: [],                   // coinvolti secondari
+    tasks: [
+      { id: 701, title: "Primo contatto", phase: "Contatto", owner: "Emanuele", date: "", done: false, note: "" },
+    ]
+  },
+  ── FINE BLOCCO ESEMPIO ── */
+];
+
+/* ═══════════════════════════════════════════════════════════
+   ██████████████████████████████████████████████████████
+   ██   FINE CONFIGURAZIONE — non toccare sotto         ██
+   ██████████████████████████████████████████████████████
+   ═══════════════════════════════════════════════════════════ */
+
+const ALL_PEOPLE = [...CORE_OWNERS, ...PERSONE_AGGIUNTIVE];
+let view = "company";
+let filterPerson = "all";
+let nextId = 9000;
+let modalCtx = null;
+
+/* ── UTILS ── */
+function pm(name) { return ALL_PEOPLE.find(p => p.name === name) || { name, color: "#888", bg: "#eee" }; }
+function pct(deal) { return deal.tasks.length ? Math.round(deal.tasks.filter(t => t.done).length / deal.tasks.length * 100) : 0; }
+function pcColor(p) { return p >= 75 ? "#1D9E75" : p >= 40 ? "#185FA5" : "#BA7517"; }
+function fmtDate(d) { if (!d) return ""; const [y, m, dd] = d.split("-"); return `${dd}/${m}`; }
+function isOverdue(d) { if (!d) return false; return new Date(d) < new Date(new Date().toDateString()); }
+function mk(tag, cls, txt) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (txt !== undefined) el.textContent = txt;
+  return el;
+}
+
+/* ── LOGIN ── */
+function checkLogin() {
+  const val = document.getElementById("pwd-input").value;
+  if (val === PASSWORD_ACCESSO) {
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    buildFilters(); renderView();
+  } else {
+    document.getElementById("login-error").style.display = "block";
+    document.getElementById("pwd-input").value = "";
+    document.getElementById("pwd-input").focus();
+  }
+}
+document.getElementById("pwd-btn").onclick = checkLogin;
+document.getElementById("pwd-input").onkeydown = e => { if (e.key === "Enter") checkLogin(); };
+
+/* ── FILTERS ── */
+function buildFilters() {
+  const row = document.getElementById("filter-row");
+  row.innerHTML = `<span class="filter-label">${view === "owner" ? "Mostra:" : "Filtra:"}</span>`;
+  const people = view === "owner" ? CORE_OWNERS : ALL_PEOPLE;
+  [{ name: "all" }, ...people].forEach(p => {
+    const c = mk("span", "chip", "");
+    c.dataset.filter = p.name;
+    if (p.name !== "all") {
+      const m = pm(p.name);
+      const dot = mk("span", "chip-dot"); dot.style.background = m.color;
+      c.appendChild(dot);
+    }
+    c.appendChild(document.createTextNode(p.name === "all" ? "Tutti" : p.name));
+    if (p.name === filterPerson) c.classList.add("active");
+    c.onclick = () => { filterPerson = p.name; buildFilters(); renderView(); };
+    row.appendChild(c);
+  });
+}
+
+/* ── VIEW ROUTER ── */
+function renderView() {
+  const mv = document.getElementById("main-view");
+  mv.innerHTML = "";
+  if (view === "company") renderCompanyView(mv);
+  else renderOwnerView(mv);
+}
+
+/* ── COMPANY VIEW ── */
+function renderCompanyView(container) {
+  const wrap = mk("div", "pipeline");
+  let shown = 0;
+  DEALS.forEach(deal => {
+    if (filterPerson !== "all") {
+      const relevant = deal.owners.includes(filterPerson) ||
+        deal.involved.includes(filterPerson) ||
+        deal.tasks.some(t => t.owner === filterPerson);
+      if (!relevant) return;
+    }
+    wrap.appendChild(buildDealRow(deal));
+    shown++;
+  });
+  if (!shown) wrap.appendChild(mk("div", "empty-msg", "Nessuna società per questo filtro."));
+  container.appendChild(wrap);
+}
+
+function buildDealRow(deal) {
+  const sm = STATI[deal.stage] || STATI["Prospect"];
+  const p = pct(deal);
+  const row = mk("div", "deal-row");
+
+  /* Header */
+  const hdr = mk("div", "deal-header");
+  hdr.appendChild(mk("span", "deal-name", deal.name));
+
+  const ownRow = mk("div", "deal-owners-row");
+  deal.owners.forEach(o => {
+    const m = pm(o);
+    const av = mk("span", "avatar", o.slice(0, 2).toUpperCase());
+    av.style.cssText = `background:${m.bg};color:${m.color}`;
+    av.title = o + " (owner)";
+    ownRow.appendChild(av);
+  });
+  if (deal.involved.length) {
+    ownRow.appendChild(mk("span", "involved-sep", "+"));
+    ownRow.appendChild(mk("span", "involved-names", deal.involved.join(", ")));
+  }
+  hdr.appendChild(ownRow);
+
+  const badge = mk("span", "stage-badge", deal.stage);
+  badge.style.cssText = `color:${sm.color};background:${sm.bg}`;
+  hdr.appendChild(badge);
+
+  const pw = mk("div", "prog-wrap");
+  const pb = mk("div", "prog-bar");
+  const pf = mk("div", "prog-fill");
+  pf.style.cssText = `width:${p}%;background:${pcColor(p)}`;
+  pb.appendChild(pf); pw.appendChild(pb);
+  pw.appendChild(mk("span", "prog-pct", p + "%"));
+  hdr.appendChild(pw);
+
+  const cv = mk("span", "chev", "▶");
+  hdr.appendChild(cv);
+
+  /* Body */
+  const body = mk("div", "deal-body");
+
+  if (deal.note) {
+    const n = mk("div", "note-pill", "📌 " + deal.note);
+    n.onclick = () => { const v = prompt("Modifica nota:", deal.note); if (v !== null) { deal.note = v; renderView(); } };
+    body.appendChild(n);
+  }
+
+  /* Phases */
+  const phases = mk("div", "phases");
+  FASI.forEach(ph => {
+    const col = mk("div", "phase-col");
+    col.appendChild(mk("div", "phase-title", ph));
+    const list = mk("div", "tasks-list");
+    const phTasks = (filterPerson === "all" ? deal.tasks : deal.tasks.filter(t => t.owner === filterPerson))
+      .filter(t => t.phase === ph);
+    phTasks.forEach(t => list.appendChild(buildTaskCard(t, deal)));
+    if (filterPerson === "all") {
+      const btn = mk("div", "add-col-btn", "+ task");
+      btn.onclick = e => { e.stopPropagation(); openModal(deal, null, ph); };
+      list.appendChild(btn);
+    }
+    col.appendChild(list);
+    phases.appendChild(col);
+  });
+  body.appendChild(phases);
+
+  /* Footer */
+  const foot = mk("div", "deal-foot");
+  foot.appendChild(mk("span", "foot-stat", deal.tasks.filter(t => t.done).length + "/" + deal.tasks.length + " task completati"));
+  const addBtn = mk("button", "foot-btn", "+ task");
+  addBtn.style.marginLeft = "auto";
+  addBtn.onclick = e => { e.stopPropagation(); openModal(deal, null, FASI[0]); };
+  foot.appendChild(addBtn);
+  const stBtn = mk("button", "foot-btn", "Cambia stadio");
+  stBtn.onclick = e => { e.stopPropagation(); advanceStage(deal); };
+  foot.appendChild(stBtn);
+  body.appendChild(foot);
+
+  /* Toggle */
+  hdr.onclick = () => {
+    const isOpen = body.classList.contains("open");
+    body.classList.toggle("open", !isOpen);
+    hdr.classList.toggle("open", !isOpen);
+    cv.classList.toggle("open", !isOpen);
+  };
+
+  row.appendChild(hdr);
+  row.appendChild(body);
+  return row;
+}
+
+function buildTaskCard(task, deal) {
+  const m = pm(task.owner);
+  const card = mk("div", "task-card" + (task.done ? " done" : ""));
+  card.appendChild(mk("div", "task-title", task.title));
+  const tf = mk("div", "task-foot");
+  const op = mk("span", "owner-pill", task.owner);
+  op.style.cssText = `color:${m.color};background:${m.bg}`;
+  tf.appendChild(op);
+  if (task.date) {
+    const dt = mk("span", "date-tag" + (isOverdue(task.date) && !task.done ? " overdue" : ""), fmtDate(task.date));
+    tf.appendChild(dt);
+  }
+  card.appendChild(tf);
+  card.onclick = e => { e.stopPropagation(); openModal(deal, task, task.phase); };
+  return card;
+}
+
+/* ── OWNER VIEW ── */
+function renderOwnerView(container) {
+  const grid = mk("div", "owner-grid");
+  const owners = filterPerson === "all" ? CORE_OWNERS : CORE_OWNERS.filter(o => o.name === filterPerson);
+  owners.forEach(owner => {
+    const allTasks = [];
+    DEALS.forEach(deal => {
+      deal.tasks.filter(t => t.owner === owner.name).forEach(t => allTasks.push({ task: t, deal }));
+    });
+    const sec = mk("div", "owner-section");
+    const ohdr = mk("div", "owner-header");
+    const av = mk("span", "avatar", owner.name.slice(0, 2).toUpperCase());
+    av.style.cssText = `background:${owner.bg};color:${owner.color};width:26px;height:26px;font-size:10px;border:none`;
+    ohdr.appendChild(av);
+    ohdr.appendChild(mk("span", "owner-hname", owner.name));
+    const pending = allTasks.filter(x => !x.task.done).length;
+    ohdr.appendChild(mk("span", "owner-stats", pending + " aperti · " + allTasks.filter(x => x.task.done).length + " completati"));
+    sec.appendChild(ohdr);
+    const tlist = mk("div", "owner-tasks");
+    if (!allTasks.length) tlist.appendChild(mk("div", "empty-msg", "Nessun task assegnato."));
+    allTasks
+      .sort((a, b) => {
+        if (a.task.done !== b.task.done) return a.task.done ? 1 : -1;
+        if (!a.task.date) return 1; if (!b.task.date) return -1;
+        return a.task.date.localeCompare(b.task.date);
+      })
+      .forEach(({ task, deal }) => {
+        const r = mk("div", "owner-task-row" + (task.done ? " done" : ""));
+        const chk = mk("span", "check" + (task.done ? " checked" : ""), task.done ? "✓" : "");
+        chk.onclick = e => { e.stopPropagation(); task.done = !task.done; renderView(); };
+        r.appendChild(chk);
+        r.appendChild(mk("span", "otask-company", deal.name));
+        r.appendChild(mk("span", "otask-title", task.title));
+        r.appendChild(mk("span", "otask-phase", task.phase));
+        if (task.date) {
+          const dt = mk("span", "otask-date" + (isOverdue(task.date) && !task.done ? " overdue" : ""), fmtDate(task.date));
+          r.appendChild(dt);
+        }
+        r.onclick = () => openModal(deal, task, task.phase);
+        tlist.appendChild(r);
+      });
+    sec.appendChild(tlist);
+    grid.appendChild(sec);
+  });
+  container.appendChild(grid);
+}
+
+/* ── STAGE ADVANCE ── */
+function advanceStage(deal) {
+  const stages = Object.keys(STATI);
+  const next = stages[(stages.indexOf(deal.stage) + 1) % stages.length];
+  if (confirm(`Cambia ${deal.name}: "${deal.stage}" → "${next}"?`)) { deal.stage = next; renderView(); }
+}
+
+/* ── MODAL ── */
+function openModal(deal, task, defaultPhase) {
+  modalCtx = { deal, task };
+  document.getElementById("m-title").textContent = task ? "Modifica task — " + deal.name : "Nuovo task — " + deal.name;
+  document.getElementById("m-desc").value = task ? task.title : "";
+  document.getElementById("m-date").value = task && task.date ? task.date : "";
+  document.getElementById("m-note").value = task && task.note ? task.note : "";
+  document.getElementById("m-done").checked = task ? task.done : false;
+  document.getElementById("m-del").style.display = task ? "inline" : "none";
+  const psel = document.getElementById("m-phase");
+  psel.innerHTML = FASI.map(p => `<option value="${p}"${p === (task ? task.phase : defaultPhase) ? " selected" : ""}>${p}</option>`).join("");
+  const osel = document.getElementById("m-owner");
+  const defaultOwner = task ? task.owner : (deal.owners[0] || ALL_PEOPLE[0].name);
+  osel.innerHTML = ALL_PEOPLE.map(p =>
+    `<option value="${p.name}"${p.name === defaultOwner ? " selected" : ""}>${p.name}${CORE_OWNERS.find(c => c.name === p.name) ? "" : " ·"}</option>`
+  ).join("");
+  document.getElementById("modal-bg").classList.add("open");
+  document.getElementById("m-desc").focus();
+}
+
+document.getElementById("m-cancel").onclick = () => document.getElementById("modal-bg").classList.remove("open");
+document.getElementById("modal-bg").onclick = e => { if (e.target.id === "modal-bg") document.getElementById("modal-bg").classList.remove("open"); };
+
+document.getElementById("m-del").onclick = () => {
+  if (!modalCtx || !modalCtx.task) return;
+  if (confirm("Eliminare questo task?")) {
+    modalCtx.deal.tasks = modalCtx.deal.tasks.filter(t => t.id !== modalCtx.task.id);
+    document.getElementById("modal-bg").classList.remove("open");
+    renderView();
+  }
+};
+
+document.getElementById("m-save").onclick = () => {
+  if (!modalCtx) return;
+  const desc = document.getElementById("m-desc").value.trim();
+  if (!desc) { document.getElementById("m-desc").focus(); return; }
+  const phase = document.getElementById("m-phase").value;
+  const owner = document.getElementById("m-owner").value;
+  const date = document.getElementById("m-date").value;
+  const note = document.getElementById("m-note").value.trim();
+  const done = document.getElementById("m-done").checked;
+  if (modalCtx.task) {
+    Object.assign(modalCtx.task, { title: desc, phase, owner, date, note, done });
+  } else {
+    modalCtx.deal.tasks.push({ id: nextId++, title: desc, phase, owner, date, note, done });
+  }
+  if (!modalCtx.deal.owners.includes(owner) && !modalCtx.deal.involved.includes(owner)) {
+    if (CORE_OWNERS.find(c => c.name === owner)) modalCtx.deal.owners.push(owner);
+    else modalCtx.deal.involved.push(owner);
+  }
+  document.getElementById("modal-bg").classList.remove("open");
+  renderView();
+};
+
+/* ── VIEW TOGGLE ── */
+document.getElementById("view-seg").onclick = e => {
+  if (!e.target.dataset.view) return;
+  view = e.target.dataset.view;
+  document.querySelectorAll(".seg-btn").forEach(b => b.classList.toggle("active", b.dataset.view === view));
+  filterPerson = "all";
+  buildFilters();
+  renderView();
+};
+</script>
+</body>
+</html>
